@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BrineMath - honest brine math</title>
+<style>
+  :root { --bg:#1a1410; --card:#241c14; --ink:#f7f0e6; --dim:#c0ab90; --acc:#e8a34e; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding:28px 24px 8px; max-width:980px; margin:0 auto; display:flex; justify-content:space-between; align-items:baseline; }
+  h1 { margin:0; font-size:28px; }
+  h1 span { color:var(--acc); }
+  nav a { color:var(--dim); text-decoration:none; font-size:14px; }
+  main { max-width:980px; margin:0 auto; padding:16px 24px 60px; display:grid; gap:18px; }
+  .card { background:var(--card); border-radius:14px; padding:20px; }
+  .card h2 { margin:0 0 12px; font-size:13px; letter-spacing:1.5px; color:var(--dim); text-transform:uppercase; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; }
+  label { display:block; font-size:13px; color:var(--dim); margin-bottom:4px; }
+  input, select { width:100%; background:#1c1610; border:1px solid #57452f; color:var(--ink); border-radius:8px; padding:9px 10px; font-size:15px; }
+  .hint { font-size:12.5px; color:var(--dim); margin-top:10px; }
+  button { cursor:pointer; border:0; border-radius:9px; padding:11px 16px; font-size:15px; background:var(--acc); color:#33200a; font-weight:600; }
+  button.ghost { background:#453723; color:var(--ink); font-weight:500; }
+  button.ghost.on { background:var(--acc); color:#33200a; font-weight:600; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+  .verdict { font-size:17px; line-height:1.65; }
+  .verdict b { color:var(--acc); }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-top:16px; }
+  .stat { background:#1c1610; border-radius:10px; padding:12px; }
+  .stat .v { font-size:19px; font-weight:700; color:var(--acc); }
+  .stat .k { font-size:12px; color:var(--dim); margin-top:2px; }
+  .warn { background:#33231a; border:1px solid #6e5535; border-radius:10px; padding:12px 14px; margin-top:14px; font-size:14px; color:#f0ddc8; }
+  table.bd { width:100%; border-collapse:collapse; margin-top:6px; font-size:14.5px; }
+  table.bd td { padding:7px 4px; border-bottom:1px solid #3b2f20; }
+  table.bd td:last-child { text-align:right; color:var(--acc); font-weight:600; }
+  .fine { font-size:12.5px; color:var(--dim); margin-top:8px; }
+  a { color:var(--acc); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Brine<span>Math</span></h1>
+  <nav><a href="index.html">about</a></nav>
+</header>
+<main>
+  <section class="card">
+    <h2>The meat</h2>
+    <div class="grid">
+      <div>
+        <label for="meat">Meat</label>
+        <select id="meat"></select>
+      </div>
+      <div>
+        <label for="weight">Weight (lb)</label>
+        <input id="weight" type="number" min="0.5" max="40" step="0.5" value="14">
+      </div>
+      <div>
+        <label for="saltType">Your salt</label>
+        <select id="saltType"></select>
+      </div>
+    </div>
+    <div class="row" id="presets"></div>
+    <div class="hint">Water is sized to submerge in a snug container or brining bag - about a quart per 2 lb, plus one for a whole bird's awkward shape.</div>
+  </section>
+
+  <section class="card">
+    <h2>The method</h2>
+    <div class="row" style="margin-top:0">
+      <button class="ghost on" id="mTimed">Timed brine (classic)</button>
+      <button class="ghost" id="mEquil">Equilibrium brine</button>
+    </div>
+    <div class="grid" style="margin-top:14px">
+      <div>
+        <label for="pct">Salt strength (%)</label>
+        <input id="pct" type="number" min="1" max="9" step="0.1" value="5.5">
+      </div>
+    </div>
+    <div class="hint" id="methodHint"></div>
+  </section>
+
+  <section class="card">
+    <h2>Your brine</h2>
+    <div class="verdict" id="verdict"></div>
+    <div class="stats" id="stats"></div>
+    <table class="bd" id="saltTable"></table>
+    <div class="warn" id="saltWarn"></div>
+  </section>
+
+  <section class="card">
+    <h2>The honest part</h2>
+    <div class="verdict" style="font-size:15px">
+      A tablespoon of Diamond Crystal kosher salt is 9 grams; a tablespoon of table salt is 18. Recipes that say "1 cup of salt" without naming the salt are gambling with your dinner. BrineMath weighs everything in grams first, then spoons second. And brine stays in the fridge the whole time - a brining bird on the counter is a petri dish with good intentions.
+    </div>
+  </section>
+</main>
+<script src="engine.js"></script>
+<script>
+(function () {
+  var method = 'timed';
+  var meatSel = document.getElementById('meat');
+  Object.keys(BrineEngine.MEATS).forEach(function (k) {
+    var o = document.createElement('option');
+    o.value = k; o.textContent = BrineEngine.MEATS[k].name;
+    meatSel.appendChild(o);
+  });
+  var saltSel = document.getElementById('saltType');
+  Object.keys(BrineEngine.SALTS).forEach(function (k) {
+    var o = document.createElement('option');
+    o.value = k; o.textContent = BrineEngine.SALTS[k].name + ' (' + BrineEngine.SALTS[k].tbspG + ' g/tbsp)';
+    saltSel.appendChild(o);
+  });
+  saltSel.value = 'morton';
+  var PRESETS = [
+    ['Thanksgiving turkey', 'turkey', 14],
+    ['Roast chicken', 'chicken', 5],
+    ['Weeknight chops', 'chops', 2],
+    ['Shrimp for the grill', 'fish', 1.5]
+  ];
+  var pw = document.getElementById('presets');
+  PRESETS.forEach(function (p) {
+    var b = document.createElement('button');
+    b.className = 'ghost'; b.textContent = p[0];
+    b.addEventListener('click', function () {
+      meatSel.value = p[1];
+      document.getElementById('weight').value = p[2];
+      render();
+    });
+    pw.appendChild(b);
+  });
+  function stat(v, k) { return '<div class="stat"><div class="v">' + v + '</div><div class="k">' + k + '</div></div>'; }
+  function setMethod(m) {
+    method = m;
+    document.getElementById('mTimed').className = 'ghost' + (m === 'timed' ? ' on' : '');
+    document.getElementById('mEquil').className = 'ghost' + (m === 'equilibrium' ? ' on' : '');
+    var pct = document.getElementById('pct');
+    if (m === 'timed') { pct.min = 4; pct.max = 8; if (pct.value < 4 || pct.value > 8) pct.value = 5.5; }
+    else { pct.min = 1.5; pct.max = 2.5; if (pct.value < 1.5 || pct.value > 2.5) pct.value = 1.8; }
+    render();
+  }
+  document.getElementById('mTimed').addEventListener('click', function () { setMethod('timed'); });
+  document.getElementById('mEquil').addEventListener('click', function () { setMethod('equilibrium'); });
+  function render() {
+    var meatKey = meatSel.value;
+    var meat = BrineEngine.MEATS[meatKey];
+    var lb = Number(document.getElementById('weight').value) || 0;
+    if (lb <= 0) return;
+    var pct = Number(document.getElementById('pct').value) || 0;
+    var qt = BrineEngine.waterQuarts(lb, meat.whole);
+    var saltG = BrineEngine.saltGrams(method, qt, lb, pct);
+    var sugarG = BrineEngine.sugarGrams(saltG);
+    var win = BrineEngine.brineWindow(meatKey, lb);
+    document.getElementById('methodHint').textContent = method === 'timed'
+      ? 'Timed: salt is a percent of the WATER only. Strong, fast, and unforgiving - pull the meat on time or it oversalts.'
+      : 'Equilibrium: salt is a percent of water AND meat combined. Exact seasoning is built in, so it cannot oversalt - leave it until you are ready to cook.';
+    document.getElementById('verdict').innerHTML =
+      'Dissolve <b>' + saltG + ' g</b> of salt (and <b>' + sugarG + ' g</b> sugar if you like) in <b>' + qt + ' quarts</b> of water. ' +
+      (method === 'timed'
+        ? 'Submerge the ' + meat.name.toLowerCase() + ' for <b>' + BrineEngine.fmtHours(win.minH) + (win.maxH > win.minH ? ' to ' + BrineEngine.fmtHours(win.maxH) : '') + '</b>, refrigerated, then rinse and dry.'
+        : 'Submerge the ' + meat.name.toLowerCase() + ' and refrigerate anywhere from <b>' + BrineEngine.fmtHours(win.minH) + '</b> up to a day or two - equilibrium brines wait for you.');
+    document.getElementById('stats').innerHTML =
+      stat(qt + ' qt', 'water (' + Math.round(qt * 0.946 * 10) / 10 + ' L)') +
+      stat(saltG + ' g', 'salt (' + pct + '% ' + (method === 'timed' ? 'of water' : 'of water+meat') + ')') +
+      stat(sugarG + ' g', 'optional sugar') +
+      stat(BrineEngine.fmtHours(win.minH) + (win.maxH > win.minH ? '-' + BrineEngine.fmtHours(win.maxH) : ''), 'fridge time');
+    var rows = '';
+    Object.keys(BrineEngine.SALTS).forEach(function (k) {
+      var s = BrineEngine.SALTS[k];
+      var tb = BrineEngine.gramsToTbsp(saltG, k);
+      var cups = Math.round(tb / 16 * 100) / 100;
+      rows += '<tr><td>' + s.name + (k === saltSel.value ? ' (yours)' : '') + '</td><td>' + tb + ' tbsp (' + cups + ' cups)</td></tr>';
+    });
+    document.getElementById('saltTable').innerHTML = rows;
+    var yours = BrineEngine.SALTS[saltSel.value];
+    document.getElementById('saltWarn').textContent =
+      'Measuring with ' + yours.name + '? ' + BrineEngine.gramsToTbsp(saltG, saltSel.value) + ' level tbsp. ' +
+      'If a recipe said "1 cup kosher salt" and you used table salt, you nearly doubled the salt - same spoons, half the crystals. Grams end the argument.';
+  }
+  ['meat', 'weight', 'saltType', 'pct'].forEach(function (id) {
+    document.getElementById(id).addEventListener('input', render);
+    document.getElementById(id).addEventListener('change', render);
+  });
+  setMethod('timed');
+})();
+</script>
+</body>
+</html>
